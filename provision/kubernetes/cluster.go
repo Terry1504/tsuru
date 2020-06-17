@@ -18,6 +18,7 @@ import (
 	"github.com/tsuru/tsuru/provision"
 	tsuruv1clientset "github.com/tsuru/tsuru/provision/kubernetes/pkg/client/clientset/versioned"
 	"github.com/tsuru/tsuru/servicemanager"
+	appTypes "github.com/tsuru/tsuru/types/app"
 	provTypes "github.com/tsuru/tsuru/types/provision"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,9 @@ const (
 	maxSurgeKey            = "max-surge"
 	maxUnavailableKey      = "max-unavailable"
 
+	enableLogsFromAPIServerKey = "enable-logs-from-apiserver"
+	defaultLogsFromAPIServer   = false
+
 	dialTimeout  = 30 * time.Second
 	tcpKeepAlive = 30 * time.Second
 )
@@ -59,6 +63,8 @@ var (
 		disableHeadlessKey:     "Disable headless service creation for every app-process. This config may be prefixed with `<pool-name>:`.",
 		maxSurgeKey:            "Max surge for deployments rollout. This config may be prefixed with `<pool-name>:`. Defaults to 100%.",
 		maxUnavailableKey:      "Max unavailable for deployments rollout. This config may be prefixed with `<pool-name>:`. Defaults to 0.",
+
+		enableLogsFromAPIServerKey: "Enable tsuru to request application logs from kubernetes api-server, will be enabled by default in next tsuru major version",
 	}
 )
 
@@ -177,7 +183,7 @@ func (c *ClusterClient) SetTimeout(timeout time.Duration) error {
 	return nil
 }
 
-func (c *ClusterClient) AppNamespace(app provision.App) (string, error) {
+func (c *ClusterClient) AppNamespace(app appTypes.App) (string, error) {
 	if app == nil {
 		return c.Namespace(), nil
 	}
@@ -258,6 +264,15 @@ func (c *ClusterClient) OvercommitFactor(pool string) (int64, error) {
 	}
 	overcommit, err := strconv.Atoi(overcommitConf)
 	return int64(overcommit), err
+}
+
+func (c *ClusterClient) LogsFromAPIServerEnabled() bool {
+	if c.CustomData == nil {
+		return defaultLogsFromAPIServer
+	}
+
+	enabled, _ := strconv.ParseBool(c.CustomData[enableLogsFromAPIServerKey])
+	return enabled
 }
 
 func (c *ClusterClient) namespaceLabels(ns string) (map[string]string, error) {
